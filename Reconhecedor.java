@@ -1,5 +1,6 @@
 package br.falacraft.client;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -57,13 +58,15 @@ public final class Reconhecedor {
 	public static volatile int ultimoVolume = 0;
 
 	private static Thread thread;
+	private static volatile List<String> frasesVoz = null;
 
 	private Reconhecedor() { }
 
 	// ---------- controle ----------
 
-	public static synchronized void iniciar(Consumer<Fala> aoOuvir, Consumer<String> aviso) {
+	public static synchronized void iniciar(List<String> frases, Consumer<Fala> aoOuvir, Consumer<String> aviso) {
 		if (thread != null && thread.isAlive()) return;
+		frasesVoz = frases;
 		ativo = true;
 		thread = new Thread(() -> rodar(aoOuvir, aviso), "FalaCraft-Voz");
 		thread.setDaemon(true);
@@ -175,7 +178,7 @@ public final class Reconhecedor {
 
 			LibVosk.setLogLevel(LogLevel.WARNINGS);
 			try (Model m = new Model(modelo.toString());
-				 Recognizer rec = new Recognizer(m, 16000f)) {
+				 Recognizer rec = criarRecognizer(m, aviso)) {
 				rec.setWords(true);
 
 				while (ativo) {
@@ -201,6 +204,25 @@ public final class Reconhecedor {
 			e.printStackTrace();
 			aviso.accept("Erro no microfone/voz: " + e.getMessage());
 		}
+	}
+
+	/** Reconhecedor limitado ao vocabulário do jogo (bem mais preciso). Se falhar, usa reconhecimento livre. */
+	private static Recognizer criarRecognizer(Model m, Consumer<String> aviso) throws Exception {
+		List<String> frases = frasesVoz;
+		if (frases != null && !frases.isEmpty()) {
+			try {
+				JsonArray arr = new JsonArray();
+				for (String f : frases) arr.add(f);
+				arr.add("[unk]");
+				Recognizer r = new Recognizer(m, 16000f, arr.toString());
+				aviso.accept("Vocabulário do jogo carregado (" + frases.size() + " frases).");
+				return r;
+			} catch (Throwable e) {
+				e.printStackTrace();
+				aviso.accept("Vocabulário limitado falhou; usando reconhecimento livre.");
+			}
+		}
+		return new Recognizer(m, 16000f);
 	}
 
 	private static void capturar(TargetDataLine linha, Recognizer rec, Consumer<Fala> aoOuvir) {
@@ -270,7 +292,7 @@ public final class Reconhecedor {
 		if (json == null) return;
 		JsonObject o = JsonParser.parseString(json).getAsJsonObject();
 		if (!o.has("text")) return;
-		String texto = o.get("text").getAsString();
+		String texto = o.get("text").getAsString().replace("[unk]", " ").replaceAll("\\s+", " ").trim();
 		if (texto.isBlank()) return;
 
 		double conf = 1.0;

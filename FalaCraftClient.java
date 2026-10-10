@@ -77,6 +77,7 @@ public class FalaCraftClient implements ClientModInitializer {
 					+ (teste == null ? "NÃO ACHEI (o idioma do jogo está em Português (Brasil)?)" : teste.id())
 					+ ". Tecla J = teste sem voz.";
 			Reconhecedor.iniciar(
+					Dicionario.frasesParaVoz(),
 					fala -> mc.execute(() -> tratar(mc, fala)),
 					aviso -> mc.execute(() -> mensagem(mc, aviso)));
 		});
@@ -112,8 +113,10 @@ public class FalaCraftClient implements ClientModInitializer {
 		}
 
 		Dicionario.Entrada e = Dicionario.procurar(f);
+		String sug = e == null ? Dicionario.sugestao(f) : null;
 		chat(mc, "Ouvi \"" + fala.texto() + "\" [" + pct + "%] -> "
-				+ (e == null ? "não reconheci como bloco/mob" : e.tipo() + " " + e.id() + " (enviado)"));
+				+ (e == null ? "não reconheci como bloco/mob" + (sug == null ? "" : " (mais parecido: " + sug + ")")
+						: e.tipo() + " " + e.id() + " (enviado)"));
 		mensagem(mc, "Ouvi: " + fala.texto());
 		if (e != null) {
 			ClientPlayNetworking.send(new PacoteVoz(e.tipo(), e.id()));

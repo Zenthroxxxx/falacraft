@@ -2,6 +2,7 @@ package br.falacraft.client;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.locale.Language;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.Block;
 
@@ -9,14 +10,53 @@ import java.text.Normalizer;
 import java.util.*;
 
 /**
- * Monta o "dicionário" falado -> bloco/mob usando os nomes traduzidos do próprio jogo.
- * Com o idioma do Minecraft em Português (Brasil), tudo que existe no jogo vira palavra reconhecível.
+ * Monta o "dicionário" falado -> bloco/mob.
+ * 1) usa os nomes traduzidos do próprio jogo (idioma Português Brasil);
+ * 2) acrescenta uma tabela própria em português, que funciona mesmo com o jogo em outro idioma.
  */
 public final class Dicionario {
 
 	public record Entrada(String tipo, String id) { }
 
 	private static final Map<String, Entrada> MAPA = new HashMap<>();
+	/** Frases que o reconhecedor de voz vai aceitar (com e sem acento). */
+	private static final Set<String> FRASES = new LinkedHashSet<>();
+
+	private static final String[][] ALIAS_MOBS = {
+		{"zumbi", "zombie"}, {"esqueleto", "skeleton"}, {"aranha", "spider"},
+		{"creeper", "creeper"}, {"criper", "creeper"}, {"cripper", "creeper"},
+		{"vaca", "cow"}, {"porco", "pig"}, {"ovelha", "sheep"}, {"galinha", "chicken"},
+		{"lobo", "wolf"}, {"cachorro", "wolf"}, {"gato", "cat"}, {"cavalo", "horse"},
+		{"burro", "donkey"}, {"mula", "mule"}, {"coelho", "rabbit"}, {"abelha", "bee"},
+		{"raposa", "fox"}, {"panda", "panda"}, {"urso polar", "polar_bear"}, {"lula", "squid"},
+		{"golfinho", "dolphin"}, {"tartaruga", "turtle"}, {"papagaio", "parrot"}, {"morcego", "bat"},
+		{"aldeão", "villager"}, {"saqueador", "pillager"}, {"bruxa", "witch"},
+		{"enderman", "enderman"}, {"ghast", "ghast"}, {"blaze", "blaze"}, {"slime", "slime"},
+		{"cubo de magma", "magma_cube"}, {"piglin", "piglin"}, {"golem de ferro", "iron_golem"},
+		{"golem de neve", "snow_golem"}, {"aranha de caverna", "cave_spider"}, {"traça", "silverfish"},
+		{"endermite", "endermite"}, {"guardião", "guardian"}, {"shulker", "shulker"},
+		{"fantasma", "phantom"}, {"afogado", "drowned"}, {"husk", "husk"}, {"vingador", "vindicator"},
+		{"invocador", "evoker"}, {"devastador", "ravager"}, {"warden", "warden"}, {"allay", "allay"},
+		{"axolote", "axolotl"}, {"sapo", "frog"}, {"camelo", "camel"}, {"cabra", "goat"},
+		{"lhama", "llama"}, {"ocelote", "ocelot"}, {"dragão do fim", "ender_dragon"}, {"wither", "wither"},
+		{"zumbi aldeão", "zombie_villager"}, {"esqueleto errante", "stray"}, {"bacalhau", "cod"},
+		{"salmão", "salmon"}, {"vaca de cogumelo", "mooshroom"}, {"golem", "iron_golem"},
+	};
+
+	private static final String[][] ALIAS_BLOCOS = {
+		{"pedra", "stone"}, {"terra", "dirt"}, {"grama", "grass_block"}, {"areia", "sand"},
+		{"cascalho", "gravel"}, {"pedregulho", "cobblestone"}, {"vidro", "glass"},
+		{"diamante", "diamond_block"}, {"ouro", "gold_block"}, {"ferro", "iron_block"},
+		{"esmeralda", "emerald_block"}, {"lápis", "lapis_block"}, {"redstone", "redstone_block"},
+		{"carvão", "coal_block"}, {"obsidiana", "obsidian"}, {"lava", "lava"}, {"água", "water"},
+		{"tnt", "tnt"}, {"netherrack", "netherrack"}, {"neve", "snow_block"}, {"gelo", "ice"},
+		{"cobre", "copper_block"}, {"baú", "chest"}, {"baú do ender", "ender_chest"},
+		{"mesa de trabalho", "crafting_table"}, {"fornalha", "furnace"}, {"abóbora", "pumpkin"},
+		{"melancia", "melon"}, {"fardo de feno", "hay_block"}, {"magma", "magma_block"},
+		{"bloco de slime", "slime_block"}, {"mel", "honey_block"}, {"madeira", "oak_planks"},
+		{"tábua", "oak_planks"}, {"tijolo", "bricks"}, {"bedrock", "bedrock"}, {"lã", "white_wool"},
+		{"estante", "bookshelf"}, {"tocha", "torch"},
+	};
 
 	private Dicionario() { }
 
@@ -27,39 +67,66 @@ public final class Dicionario {
 
 	public static void construir() {
 		MAPA.clear();
+		FRASES.clear();
 		Language lang = Language.getInstance();
 
 		for (Block b : BuiltInRegistries.BLOCK) {
 			if (b.defaultBlockState().isAir()) continue;
-			adicionar(lang, b.getDescriptionId(), "bloco", BuiltInRegistries.BLOCK.getKey(b).toString(), false);
+			String chave = b.getDescriptionId();
+			if (lang.has(chave)) {
+				registrar(lang.getOrDefault(chave), new Entrada("bloco", BuiltInRegistries.BLOCK.getKey(b).toString()), false);
+			}
 		}
 		// mobs vêm depois e têm prioridade se o nome for igual ao de um bloco
 		for (EntityType<?> t : BuiltInRegistries.ENTITY_TYPE) {
 			if (!t.canSummon()) continue;
-			adicionar(lang, t.getDescriptionId(), "mob", BuiltInRegistries.ENTITY_TYPE.getKey(t).toString(), true);
+			String chave = t.getDescriptionId();
+			if (lang.has(chave)) {
+				registrar(lang.getOrDefault(chave), new Entrada("mob", BuiltInRegistries.ENTITY_TYPE.getKey(t).toString()), true);
+			}
 		}
 
-		// atalhos: "bloco de ferro" também responde a só "ferro", etc.
-		for (Map.Entry<String, Entrada> en : new ArrayList<>(MAPA.entrySet())) {
-			String nome = en.getKey();
-			if (nome.startsWith("bloco de ")) MAPA.putIfAbsent(nome.substring(9), en.getValue());
-			else if (nome.startsWith("bloco do ")) MAPA.putIfAbsent(nome.substring(9), en.getValue());
-		}
+		// tabela própria em português (não sobrescreve o que o jogo já traduziu)
+		for (String[] a : ALIAS_BLOCOS) aliasSe("bloco", a[0], a[1]);
+		for (String[] a : ALIAS_MOBS) aliasSe("mob", a[0], a[1]);
 
-		// garante o exemplo principal mesmo se o idioma não estiver em português
-		MAPA.put("bau", new Entrada("bloco", "minecraft:chest"));
+		for (String c : new String[] { "parar", "cancelar", "para" }) FRASES.add(c);
 	}
 
-	private static void adicionar(Language lang, String chave, String tipo, String id, boolean sobrescrever) {
-		if (!lang.has(chave)) return;
-		String nome = normalizar(lang.getOrDefault(chave));
-		if (nome.isEmpty()) return;
-		Entrada e = new Entrada(tipo, id);
-		if (sobrescrever) MAPA.put(nome, e); else MAPA.putIfAbsent(nome, e);
+	private static void aliasSe(String tipo, String nome, String idCurto) {
+		Identifier id = Identifier.withDefaultNamespace(idCurto);
+		boolean existe = tipo.equals("bloco")
+				? BuiltInRegistries.BLOCK.getOptional(id).isPresent()
+				: BuiltInRegistries.ENTITY_TYPE.getOptional(id).isPresent();
+		if (existe) registrar(nome, new Entrada(tipo, id.toString()), false);
+	}
+
+	private static void registrar(String nomeOriginal, Entrada e, boolean sobrescrever) {
+		String limpo = nomeOriginal.toLowerCase(Locale.ROOT)
+				.replaceAll("[^\\p{L}\\p{N} ]", " ").replaceAll("\\s+", " ").trim();
+		if (limpo.isEmpty()) return;
+		String chave = normalizar(limpo);
+		if (chave.isEmpty()) return;
+
+		if (sobrescrever) MAPA.put(chave, e); else MAPA.putIfAbsent(chave, e);
+		FRASES.add(limpo);
+		FRASES.add(chave);
+
+		// atalho: "bloco de ferro" também responde a só "ferro"
+		if (limpo.startsWith("bloco de ") || limpo.startsWith("bloco do ")) {
+			registrar(limpo.substring(9), e, false);
+		}
 	}
 
 	public static int tamanho() {
 		return MAPA.size();
+	}
+
+	/** Lista de frases para limitar o reconhecimento de voz ao vocabulário do jogo. */
+	public static List<String> frasesParaVoz() {
+		List<String> l = new ArrayList<>();
+		for (String f : FRASES) if (f.length() >= 3) l.add(f);
+		return l;
 	}
 
 	/** Procura na frase falada o nome de algum bloco/mob. Retorna null se não achar. */
@@ -94,6 +161,18 @@ public final class Dicionario {
 			}
 		}
 		return melhor;
+	}
+
+	/** Nome mais parecido com o que foi ouvido (só para diagnóstico). */
+	public static String sugestao(String f) {
+		String melhor = null;
+		int md = Integer.MAX_VALUE;
+		for (String nome : MAPA.keySet()) {
+			if (Math.abs(nome.length() - f.length()) > 6) continue;
+			int d = distancia(f, nome, 6);
+			if (d < md) { md = d; melhor = nome; }
+		}
+		return (melhor == null || md > 6) ? null : melhor;
 	}
 
 	private static Entrada exato(String c) {
