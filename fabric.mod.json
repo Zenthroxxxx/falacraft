@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "falacraft",
+  "version": "${version}",
+  "name": "FalaCraft",
+  "description": "Controle o Minecraft com a voz: fale bau e tudo vira bau, fale zumbi e aparece uma horda.",
+  "authors": ["byel"],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["br.falacraft.FalaCraft"],
+    "client": ["br.falacraft.client.FalaCraftClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.1",
+    "minecraft": "~26.2",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

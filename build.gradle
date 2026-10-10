@@ -24,6 +24,21 @@ dependencies {
 	include("com.alphacephei:vosk:${project.vosk_version}") { transitive = false }
 }
 
+
+// Projeto "plano": todos os arquivos ficam soltos na raiz (sem pastas)
+sourceSets {
+	main {
+		java {
+			srcDirs = ['.']
+			include '*.java'
+		}
+		resources {
+			srcDirs = ['.']
+			include 'fabric.mod.json'
+		}
+	}
+}
+
 processResources {
 	inputs.property "version", project.version
 	filesMatching("fabric.mod.json") {
