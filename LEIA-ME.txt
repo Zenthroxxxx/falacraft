@@ -1,0 +1,24 @@
+FalaCraft - mod por voz para Minecraft Java (Fabric 26.2)
+
+COMO PEGAR O JAR (sem instalar nada)
+1) Crie uma conta em github.com e um repositório novo (botão "New").
+2) Abra o repositório > "uploading an existing file" e arraste TUDO que está dentro desta pasta
+   (inclusive a pasta .github). Clique em "Commit changes".
+3) Vá na aba "Actions", espere o check ficar verde (uns 3-5 minutos).
+4) Clique na execução > role até "Artifacts" > baixe "falacraft-jar". Dentro vem o falacraft-1.0.0.jar.
+5) Coloque o .jar na pasta mods (junto do Fabric API).
+
+NO JOGO
+- Opções > Idioma > Português (Brasil). Entre num mundo e fale!
+- "baú" -> tudo ao redor vira baú
+- "diamante", "pedra", "lava"... -> tudo vira aquele bloco
+- "zumbi", "creeper", "vaca"... -> aparecem 20
+- "parar" -> cancela a transformação em andamento
+- Tecla V liga/desliga o microfone
+
+Na primeira vez o mod baixa sozinho o modelo de voz em português (~31 MB).
+O mod precisa estar no cliente E no servidor (single player já funciona direto).
+FAÇA BACKUP DO MUNDO ANTES: não existe desfazer.
+Ajustes (raio, altura, mobs) ficam no topo de Transformador.java e Invocador.java.
+
+Se o build falhar, clique na execução com X vermelho, copie o erro e mande pro Claude.
