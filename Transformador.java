@@ -51,12 +51,12 @@ public final class Transformador {
 		TAREFAS.put(jogador.getUUID(), new Tarefa(jogador, nivel, bloco.defaultBlockState(),
 				chunks, minY, maxY, p.immutable(), p.above()));
 
-		jogador.sendSystemMessage(Component.literal("Transformando tudo em ").append(bloco.getName()).append("..."), true);
+		jogador.sendSystemMessage(Component.literal("[FalaCraft] Transformando tudo em ").append(bloco.getName()).append("... (fale \"parar\" para cancelar)"));
 	}
 
 	static void cancelar(ServerPlayer jogador) {
 		if (TAREFAS.remove(jogador.getUUID()) != null) {
-			jogador.sendSystemMessage(Component.literal("Transformação cancelada."), true);
+			jogador.sendSystemMessage(Component.literal("[FalaCraft] Transformação cancelada."));
 		}
 	}
 
@@ -72,7 +72,7 @@ public final class Transformador {
 				continue;
 			}
 			if (t.executar(limite)) {
-				t.jogador.sendSystemMessage(Component.literal("Pronto! " + t.total + " blocos transformados."));
+				t.jogador.sendSystemMessage(Component.literal("[FalaCraft] Pronto! " + t.total + " blocos transformados."));
 				it.remove();
 			}
 			if (System.nanoTime() >= limite) break;

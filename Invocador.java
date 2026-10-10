@@ -7,10 +7,12 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MobCategory;
 
 import java.util.Set;
 
@@ -27,7 +29,7 @@ public final class Invocador {
 
 	static void invocar(ServerPlayer jogador, EntityType<?> tipo) {
 		if (!tipo.canSummon()) {
-			jogador.sendSystemMessage(Component.literal("Isso não pode ser invocado."), true);
+			jogador.sendSystemMessage(Component.literal("[FalaCraft] Isso não pode ser invocado."));
 			return;
 		}
 		ServerLevel nivel = (ServerLevel) jogador.level();
@@ -45,12 +47,20 @@ public final class Invocador {
 			if (e == null) continue;
 			if (!(e instanceof Mob)) { // só vale mob de verdade
 				e.discard();
-				jogador.sendSystemMessage(Component.literal("Isso não é um mob."), true);
+				jogador.sendSystemMessage(Component.literal("[FalaCraft] Isso não é um mob."));
 				return;
 			}
 			criados++;
 		}
-		jogador.sendSystemMessage(Component.literal(criados + "x ").append(tipo.getDescription()), true);
+
+		FalaCraft.LOG.info("Invocados {} de {}", criados, id);
+		jogador.sendSystemMessage(Component.literal("[FalaCraft] " + criados + "x ").append(tipo.getDescription()));
+		if (criados == 0) {
+			jogador.sendSystemMessage(Component.literal("[FalaCraft] Nenhum apareceu. O mundo está em algum modo que bloqueia?"));
+		} else if (tipo.getCategory() == MobCategory.MONSTER && nivel.getDifficulty() == Difficulty.PEACEFUL) {
+			jogador.sendSystemMessage(Component.literal(
+					"[FalaCraft] Atenção: no modo PACÍFICO monstros hostis somem na hora. Mude a dificuldade ou fale um mob pacífico (vaca, ovelha)."));
+		}
 	}
 
 	/** Procura um lugar com chão firme e 2 blocos de espaço livre perto da posição sorteada. */

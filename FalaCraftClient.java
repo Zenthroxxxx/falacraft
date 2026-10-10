@@ -20,34 +20,47 @@ public class FalaCraftClient implements ClientModInitializer {
 	private static KeyMapping teclaMicrofone;  // V: liga/desliga
 	private static KeyMapping teclaTrocar;     // B: troca de microfone
 	private static KeyMapping teclaMedidor;    // N: mostra/esconde o medidor de volume
+	private static KeyMapping teclaTeste;      // J: teste sem voz (pede 20 zumbis ao servidor)
 
 	private static boolean mostrarMedidor = true;
 	private static String ultimaMsg = "";
+	private static String avisoInicial = null;
 	private static int contador = 0;
 
 	@Override
 	public void onInitializeClient() {
-		teclaMicrofone = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-				"key.falacraft.microfone", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, KeyMapping.Category.MISC));
-		teclaTrocar = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-				"key.falacraft.trocar_microfone", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, KeyMapping.Category.MISC));
-		teclaMedidor = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-				"key.falacraft.medidor", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N, KeyMapping.Category.MISC));
+		teclaMicrofone = tecla("key.falacraft.microfone", GLFW.GLFW_KEY_V);
+		teclaTrocar = tecla("key.falacraft.trocar_microfone", GLFW.GLFW_KEY_B);
+		teclaMedidor = tecla("key.falacraft.medidor", GLFW.GLFW_KEY_N);
+		teclaTeste = tecla("key.falacraft.teste", GLFW.GLFW_KEY_J);
 
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+			if (avisoInicial != null && mc.player != null) {
+				chat(mc, avisoInicial);
+				avisoInicial = null;
+			}
+
 			while (teclaMicrofone.consumeClick()) {
 				boolean desligado = Reconhecedor.alternarPausa();
 				mensagem(mc, desligado ? "Microfone DESLIGADO" : "Microfone LIGADO");
 			}
 			while (teclaTrocar.consumeClick()) {
-				mensagem(mc, "Trocando microfone...");
 				String nome = Reconhecedor.trocarMicrofone();
 				mensagem(mc, "Microfone: " + nome);
+				chat(mc, "Microfone: " + nome);
 			}
 			while (teclaMedidor.consumeClick()) {
 				mostrarMedidor = !mostrarMedidor;
 				ultimaMsg = mostrarMedidor ? "Medidor ligado" : "Medidor desligado";
 				if (!mostrarMedidor) mostrarNaTela(mc, ultimaMsg);
+			}
+			while (teclaTeste.consumeClick()) {
+				if (!ClientPlayNetworking.canSend(PacoteVoz.TIPO)) {
+					chat(mc, "TESTE FALHOU: o servidor não tem o mod (cliente não consegue enviar).");
+				} else {
+					ClientPlayNetworking.send(new PacoteVoz("mob", "minecraft:zombie"));
+					chat(mc, "TESTE: pedi zumbis ao servidor (sem usar a voz).");
+				}
 			}
 
 			if (mostrarMedidor && mc.player != null && ++contador % 4 == 0) {
@@ -59,12 +72,21 @@ public class FalaCraftClient implements ClientModInitializer {
 
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, mc) -> {
 			Dicionario.construir();
+			Dicionario.Entrada teste = Dicionario.procurar("zumbi");
+			avisoInicial = "Dicionário com " + Dicionario.tamanho() + " nomes. \"zumbi\" -> "
+					+ (teste == null ? "NÃO ACHEI (o idioma do jogo está em Português (Brasil)?)" : teste.id())
+					+ ". Tecla J = teste sem voz.";
 			Reconhecedor.iniciar(
 					fala -> mc.execute(() -> tratar(mc, fala)),
 					aviso -> mc.execute(() -> mensagem(mc, aviso)));
 		});
 
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> Reconhecedor.parar());
+	}
+
+	private static KeyMapping tecla(String nome, int glfw) {
+		return KeyMappingHelper.registerKeyMapping(
+				new KeyMapping(nome, InputConstants.Type.KEYSYM, glfw, KeyMapping.Category.MISC));
 	}
 
 	private static void tratar(Minecraft mc, Reconhecedor.Fala fala) {
@@ -79,18 +101,20 @@ public class FalaCraftClient implements ClientModInitializer {
 		}
 
 		if (!ClientPlayNetworking.canSend(PacoteVoz.TIPO)) {
-			mensagem(mc, "Este servidor não tem o mod FalaCraft.");
+			chat(mc, "Ouvi \"" + fala.texto() + "\" mas o servidor não tem o mod FalaCraft.");
 			return;
 		}
 
 		if (f.equals("parar") || f.equals("cancelar") || f.equals("para")) {
 			ClientPlayNetworking.send(new PacoteVoz("parar", ""));
-			mensagem(mc, "Ouvi: " + fala.texto() + "  -> parar");
+			chat(mc, "Ouvi \"" + fala.texto() + "\" -> parar");
 			return;
 		}
 
 		Dicionario.Entrada e = Dicionario.procurar(f);
-		mensagem(mc, "Ouvi: " + fala.texto() + " [" + pct + "%]" + (e == null ? "  (não reconheci)" : "  ->  " + e.id()));
+		chat(mc, "Ouvi \"" + fala.texto() + "\" [" + pct + "%] -> "
+				+ (e == null ? "não reconheci como bloco/mob" : e.tipo() + " " + e.id() + " (enviado)"));
+		mensagem(mc, "Ouvi: " + fala.texto());
 		if (e != null) {
 			ClientPlayNetworking.send(new PacoteVoz(e.tipo(), e.id()));
 		}
@@ -100,10 +124,17 @@ public class FalaCraftClient implements ClientModInitializer {
 		return s.length() > 24 ? s.substring(0, 24) + "…" : s;
 	}
 
-	/** Guarda a mensagem; com o medidor ligado ela aparece junto dele, senão aparece direto. */
+	/** Mensagem curta de estado: aparece junto do medidor (ou sozinha se o medidor estiver desligado). */
 	private static void mensagem(Minecraft mc, String texto) {
 		ultimaMsg = texto;
 		if (!mostrarMedidor) mostrarNaTela(mc, texto);
+	}
+
+	/** Mensagem no chat (fica registrada, o medidor não cobre). */
+	private static void chat(Minecraft mc, String texto) {
+		if (mc.player != null) {
+			mc.player.sendSystemMessage(Component.literal("[FalaCraft] " + texto));
+		}
 	}
 
 	private static void mostrarNaTela(Minecraft mc, String texto) {
