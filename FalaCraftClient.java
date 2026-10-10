@@ -54,7 +54,7 @@ public class FalaCraftClient implements ClientModInitializer {
 		}
 
 		Dicionario.Entrada e = Dicionario.procurar(f);
-		mensagem(mc, "Ouvi: " + frase + (e == null ? "  (não reconheci)" : "  ->  " + e.id()));
+		mensagem(mc, "Ouvi: " + frase + "  [vol " + Reconhecedor.ultimoVolume + "]" + (e == null ? "  (não reconheci)" : "  ->  " + e.id()));
 		if (e != null) {
 			ClientPlayNetworking.send(new PacoteVoz(e.tipo(), e.id()));
 		}

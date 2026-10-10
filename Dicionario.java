@@ -39,6 +39,13 @@ public final class Dicionario {
 			adicionar(lang, t.getDescriptionId(), "mob", BuiltInRegistries.ENTITY_TYPE.getKey(t).toString(), true);
 		}
 
+		// atalhos: "bloco de ferro" também responde a só "ferro", etc.
+		for (Map.Entry<String, Entrada> en : new ArrayList<>(MAPA.entrySet())) {
+			String nome = en.getKey();
+			if (nome.startsWith("bloco de ")) MAPA.putIfAbsent(nome.substring(9), en.getValue());
+			else if (nome.startsWith("bloco do ")) MAPA.putIfAbsent(nome.substring(9), en.getValue());
+		}
+
 		// garante o exemplo principal mesmo se o idioma não estiver em português
 		MAPA.put("bau", new Entrada("bloco", "minecraft:chest"));
 	}
