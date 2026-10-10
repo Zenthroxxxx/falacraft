@@ -12,7 +12,7 @@ public class FalaCraft implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		PayloadTypeRegistry.playC2S().register(PacoteVoz.TIPO, PacoteVoz.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(PacoteVoz.TIPO, PacoteVoz.CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(PacoteVoz.TIPO, (pacote, contexto) -> {
 			ServerPlayer jogador = contexto.player();

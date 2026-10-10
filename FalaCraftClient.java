@@ -62,7 +62,7 @@ public class FalaCraftClient implements ClientModInitializer {
 
 	private static void mensagem(Minecraft mc, String texto) {
 		if (mc.player != null) {
-			mc.player.displayClientMessage(Component.literal(texto), true);
+			mc.player.sendOverlayMessage(Component.literal(texto));
 		}
 	}
 }
